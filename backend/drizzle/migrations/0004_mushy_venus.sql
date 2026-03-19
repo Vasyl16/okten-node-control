@@ -1,0 +1,1 @@
+ALTER TABLE "advertisements" ADD COLUMN "moderation_comment" text;

@@ -1,0 +1,15 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+    image: autoria-api:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: dev
+      APP_HOST: 0.0.0.0
+      APP_PORT: 3000
+    ports:
+      - "3000:3000"
