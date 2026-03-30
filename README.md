@@ -1,114 +1,86 @@
-# AutoRia Clone Backend (AutoRia-style)
+# AutoRia Clone Backend (npm + remote PostgreSQL)
 
-Цей проєкт — backend частина платформи продажу авто на **Node.js / Express / TypeScript** + **PostgreSQL** (Drizzle ORM).
+Backend платформа продажу авто: **Node.js / Express / TypeScript** + **PostgreSQL** (Drizzle ORM).
 
-## 1. Що потрібно
+> БД **remote**, використовується `DB_URI` з `backend/.env`.
 
-- Docker Desktop (щоб підняти PostgreSQL)
+## 1) Що потрібно
+
 - Node.js + npm
-- Postman (для перевірки API)
+- Postman
+- remote PostgreSQL (у тебе вже є `DB_URI`)
 
-## 2. Запуск PostgreSQL
+## 2) Налаштуй `backend/.env`
 
-З кореня проєкту `node_autoria`:
+1. Скопіюй `backend/.env.example` → `backend/.env` (або просто відредагуй `backend/.env`).
+2. Переконайся, що задані:
+   - `DB_URI`
+   - `APP_HOST`, `APP_PORT`
+   - `JWT_ACCESS_SECRET`, `JWT_ACCESS_EXPIRATION`
+   - `JWT_REFRESH_SECRET`, `JWT_REFRESH_EXPIRATION`
+   - `PRICE_RECALC_CRON`
+   - `PRIVAT_API_URL`
 
-```bash
-docker-compose up -d
-```
-
-## 3. Налаштування ENV
-
-У `backend` відкрий файл `backend/.env.example`, створіть:
-- `backend/.env.dev` (для локальної роботи) або `backend/.env.prod`
-
-Після цього API читатиме значення з `config`.
-
-## 4. Міграції та seed (mock дані)
-
-Перейдіть в `backend`:
+## 3) Встанови залежності
 
 ```bash
 cd backend
+npm i
 ```
 
-### 4.1 Міграції
+## 4) Міграції
 
 ```bash
 npm run drizzle:migrate
 ```
 
-### 4.2 Seed базових даних
+## 5) Seed (mock дані)
+
+### 5.1 Базові дані (ролі, permissions, admin, бренди/моделі/регіони, currency_rates)
 
 ```bash
 npm run seed
 ```
 
-Seed створює:
-- account types (`basic`, `premium`)
-- ролі (`buyer`, `seller`, `manager`, `admin`)
-- permissions + role_permissions
-- admin користувача:
-  - `admin@autoria.local` / `admin123`
-- premium seller для тестування статистики:
-  - `premium.seller@autoria.local` / `admin123`
-- brands / models / regions
-- початкові `currency_rates`
+### 5.2 Додаткові оголошення + статистика переглядів
 
-### 4.3 Seed додаткових оголошень + статистика переглядів
+Скрипт: `src/db/seed-extra-ads.ts` (у `package.json` це `npm run seed:ads`).
 
-Скрипт: `backend/src/db/seed-extra-ads.ts` (в `package.json` це `npm run seed:ads`)
+**За userId:**
 
 ```bash
 npm run seed:ads -- <userId1,userId2,...>
 ```
 
-Скрипт також підтримує **email** замість userId:
+**За email:**
 
 ```bash
-npm run seed:ads -- <email1,email2,...>
+npm run seed:ads -- "premium.seller@autoria.local"
 ```
 
-Пояснення:
-- створює кілька оголошень (`advertisements`) для заданих користувачів
-- вставляє фейкові записи `advert_view_stats` (останні ~10 днів), щоб швидко перевірити `GET /ads/:id/stats`
+Це заповнює:
 
-## 5. Запуск сервера
+- `advertisements`
+- `advert_view_stats` (останні ~10 днів), щоб одразу перевіряти `GET /ads/:id/stats`.
 
-У `backend`:
+## 6) Запуск сервера
+
+### dev
 
 ```bash
 npm run dev
 ```
 
-API буде доступне за адресою, заданою в `.env` (`APP_HOST`, `APP_PORT`).
+Сервер слухає `APP_HOST:APP_PORT`.
 
-## 6. Auth (JWT) і як тестувати protected endpoints
+> Під час старту також запускається cron (раз на день) для оновлення приватбанківських курсів і перерахунку `priceUsd/priceEur/priceUah`.
 
-### 6.1 Sign up
+## 7) Auth (JWT Bearer)
 
-`POST /auth/sign-up`
-
-Тіло (JSON):
-```json
-{
-  "firstName": "Ivan",
-  "lastName": "Ivanov",
-  "email": "ivan@example.com",
-  "password": "StrongPassword123!",
-  "phone": "+380123456789",
-  "role": "seller"
-}
-```
-
-- `role` необов’язковий
-- дозволені значення: `buyer` або `seller`
-- за замовчуванням, якщо `role` не передати — буде `seller`
-
-### 6.2 Sign in
+### Sign in
 
 `POST /auth/sign-in`
 
-Тіло (JSON):
 ```json
 {
   "email": "admin@autoria.local",
@@ -117,80 +89,311 @@ API буде доступне за адресою, заданою в `.env` (`AP
 ```
 
 Відповідь містить:
+
 - `tokenPair.accessToken`
 - `tokenPair.refreshToken`
 
-### 6.3 Використання JWT (Bearer)
+### Як передавати токен
 
-Для будь-якого endpoint, де потрібно авторизуватися, додайте header:
+Для protected endpoint-ів у Postman:
 
 - `Authorization: Bearer <accessToken>`
 
-У Postman:
-- після `sign-in` вручну скопіюйте `accessToken` і вставте в змінну (див. Postman collection)
+### Refresh / logout
 
-### 6.4 Refresh / logout
+- `POST /auth/refresh` (Bearer у header — `refreshToken`)
+- `POST /auth/log-out` (Bearer у header — `accessToken`)
 
-- `POST /auth/refresh` (Authorization: Bearer `<refreshToken>`)
-- `POST /auth/log-out` (Authorization: Bearer `<accessToken>`)
+## 8) Permissions (RBAC)
 
-## 7. Система permissions (RBAC)
+RBAC реалізовано через `roles` + `permissions` + `role_permissions`.
 
-Реалізовано через:
-- `roles`
-- `permissions`
-- `role_permissions`
+Перевірка робиться middleware `checkPermission(...)`, яке дістає `userId` з JWT і перевіряє чи є відповідний `permission.name`.
 
-Механіка:
-1. `checkPermission(...)` бере JWT userId
-2. підтягує `user.permissions` (через `getFullUserById`)
-3. перевіряє чи user має потрібний `permission.name`
+Приклади:
 
-Приклади permission:
-- `listings.create` (створити оголошення)
-- `listings.update.own` / `listings.update.any`
-- `listings.delete.own` / `listings.delete.any`
-- `users.read`, `users.ban`
-- `moderation.review`, `moderation.approve`, `moderation.reject`
-- `admin.manage_brands`, `admin.manage_roles`
+- `POST /ads` → `listings.create`
+- `PATCH /ads/:id` → `listings.update.own` або `listings.update.any`
+- `DELETE /ads/:id` → `listings.delete.own` або `listings.delete.any`
+- `POST /catalog/brands` → `admin.manage_brands`
+- `/moderation/*` → `moderation.review|approve|reject`
+- `/users/:id/ban` → `users.ban`
 
-Важливо про статистику:
-- `GET /ads/:id/stats` **не** перевіряє permission-місце в middleware
-- доступ визначається в сервісі:
-  - оголошення має належати користувачу
-  - акаунт користувача має бути `premium`
+## 9) Статистика оголошення (premium-only)
 
-## 8. Основні endpoint-и, що важливо перевірити
+`GET /ads/:id/stats`:
 
-### Ads
-- `GET /ads` (public, тільки `active`)
-- `GET /ads/:id` (public, інкрементує `views` для statistics)
-- `GET /ads/me/list` (тільки свої оголошення)
-- `POST /ads` (seller; basic: максимум 1)
-- `PATCH /ads/:id` (owner або update.any для manager/admin)
-- `DELETE /ads/:id`:
-  - owner може видаляти
-  - manager/admin може видаляти `inactive` навіть якщо не owner
-- `GET /ads/:id/stats`:
-  - тільки premium і тільки для власних оголошень
+- тільки **premium** акаунт
+- тільки **для власних** оголошень
 
-### Catalog
-- `GET /catalog/brands`, `GET /catalog/brands/:id/models`, `GET /catalog/regions`
-- `POST /catalog/brands` (admin)
-- `POST /catalog/brands/:id/models` (admin)
-- `POST /catalog/requests/brand` та `/requests/model` (валідація додана)
+Тому:
 
-### Moderation
-- `GET /moderation/ads` (черга на перевірку)
-- `POST /moderation/ads/:id/approve`
-- `POST /moderation/ads/:id/reject`
+- basic seller не зможе бачити stats
+- premium seller зможе отримати views + середню ціну по регіону + середню по Україні (залежить від розрахунків у сервісі)
 
-## 9. Постман
+## 10) Postman
+
+У корені `node_autoria` є `postman_collection.json`.
+Імпортуй у Postman та вистав `baseUrl`.
+Після `sign-in` підстав `accessToken` в `Authorization`.
+
+# AutoRia Clone Backend (npm + remote PostgreSQL)
+
+Backend платформа продажу авто: **Node.js / Express / TypeScript** + **PostgreSQL (Drizzle ORM)**.
+
+> Важливо: БД **не локальна**, використовується `DB_URI` з `backend/.env`.
+
+## 1) Що потрібно
+
+- Node.js + npm
+- Postman (для перевірки)
+- Налаштований remote PostgreSQL (у тебе вже є `DB_URI`)
+
+## 2) Налаштуй `backend/.env`
+
+1. Відкрий `backend/.env.example`
+2. Створи `backend/.env` (якщо ще не зроблено)
+3. Заповни значення (мінімально):
+   - `DB_URI`
+   - `APP_HOST`, `APP_PORT`
+   - `JWT_ACCESS_SECRET`, `JWT_ACCESS_EXPIRATION`
+   - `JWT_REFRESH_SECRET`, `JWT_REFRESH_EXPIRATION`
+   - `PRICE_RECALC_CRON`
+   - `PRIVAT_API_URL`
+
+## 3) Інсталяція
+
+```bash
+cd backend
+npm i
+```
+
+## 4) Міграції
+
+```bash
+cd backend
+npm run drizzle:migrate
+```
+
+## 5) Seed (mock дані)
+
+### 5.1 Базові дані (ролі, permissions, admin, бренди/моделі/регіони, currency_rates)
+
+```bash
+cd backend
+npm run seed
+```
+
+### 5.2 Додаткові оголошення + статистика переглядів
+
+Скрипт: `src/db/seed-extra-ads.ts` (у package.json це `npm run seed:ads`).
+
+За допомогою **userId**:
+
+```bash
+npm run seed:ads -- <userId1,userId2,...>
+```
+
+За допомогою **email**:
+
+```bash
+npm run seed:ads -- "premium.seller@autoria.local"
+```
+
+Скрипт заповнює:
+
+- `advertisements`
+- `advert_view_stats` (для швидкого тесту `/ads/:id/stats`)
+
+## 6) Запуск сервера
+
+### dev (рекомендовано)
+
+```bash
+cd backend
+npm run dev
+```
+
+Сервер піднімається на `APP_HOST:APP_PORT`.
+
+> Кожен старт також ініціює cron, який **раз на день** оновлює currency rates і перераховує `priceUsd/priceEur/priceUah`.
+
+## 7) Auth (JWT Bearer)
+
+### 7.1 Sign in
+
+`POST /auth/sign-in`
+
+Body:
+
+```json
+{
+  "email": "admin@autoria.local",
+  "password": "admin123"
+}
+```
+
+Відповідь містить:
+
+- `tokenPair.accessToken`
+- `tokenPair.refreshToken`
+
+### 7.2 Як передавати токен
+
+У Postman для protected endpoint-ів додай:
+
+- `Authorization: Bearer <accessToken>`
+
+## 8) Permissions (RBAC)
+
+Permissions працюють через `checkPermission(...)`, яке перевіряє `user.permissions` на основі JWT.
+
+Приклади protected endpoint-ів:
+
+- `POST /ads` → `listings.create`
+- `PATCH /ads/:id` → `listings.update.own` або `listings.update.any`
+- `DELETE /ads/:id` → `listings.delete.own` або `listings.delete.any`
+- `POST /catalog/brands` → `admin.manage_brands`
+- `GET/POST /moderation/*` → `moderation.*`
+- `PATCH /users/:id/ban` → `users.ban`
+
+## 9) Статистика оголошення (premium-only)
+
+`GET /ads/:id/stats` працює так:
+
+- доступ тільки **для premium** акаунта
+- тільки для оголошень **власника**
+
+Тому:
+
+- basic seller не зможе викликати це endpoint для своїх оголошень
+- premium seller зможе побачити:
+  - total views
+  - views за day/week/month
+  - середню ціну по регіону
+
+## 10) Postman
 
 У корені `node_autoria` є файл:
+
 - `postman_collection.json`
 
-Імпортуйте його в Postman:
-- створіть environment із `baseUrl`
-- вставте `accessToken` після `sign-in`
+Імпортуй його в Postman і після `sign-in` встав `accessToken` в `Authorization`.
 
+# AutoRia Clone Backend — Docker
+
+## 1) Налаштуй env
+
+Використовується файл `backend/.env` (remote PostgreSQL через `DB_URI`).
+
+Переконайся, що в `backend/.env` задані:
+
+- `DB_URI`
+- `JWT_ACCESS_SECRET`, `JWT_ACCESS_EXPIRATION`
+- `JWT_REFRESH_SECRET`, `JWT_REFRESH_EXPIRATION`
+- `PRICE_RECALC_CRON`
+- `PRIVAT_API_URL`
+- `APP_HOST`, `APP_PORT`
+
+## 2) Збірка та запуск (docker-compose)
+
+З папки `node_autoria/backend`:
+
+```bash
+docker-compose -f docker-compose.yml up --build
+```
+
+API буде доступне на `http://localhost:3000` (або іншому порту з `APP_PORT`).
+
+## 3) Зупинка
+
+```bash
+docker-compose -f docker-compose.yml down
+```
+
+## 4) Перевірка / логи
+
+```bash
+docker-compose -f docker-compose.yml ps
+docker-compose -f docker-compose.yml logs -f
+```
+
+## 5) (Опційно) Міграції та seed
+
+> `seed` — робить “очистку і вставку” (може бути деструктивним для прод/remote БД). Використовуй обережно.
+
+### 5.1 Міграції
+
+```bash
+docker-compose -f docker-compose.yml exec api npm run drizzle:migrate
+```
+
+### 5.2 Seed базових даних
+
+```bash
+docker-compose -f docker-compose.yml exec api npm run seed
+```
+
+### 5.3 Seed оголошень і статистики (для тесту premium /ads/:id/stats)
+
+Скрипт: `src/db/seed-extra-ads.ts`
+
+```bash
+docker-compose -f docker-compose.yml exec api npm run seed:ads -- "<userId1,userId2,...>"
+```
+
+Також підтримується **email**, наприклад:
+
+```bash
+docker-compose -f docker-compose.yml exec api npm run seed:ads -- "premium.seller@autoria.local"
+```
+
+Після цього можна перевіряти:
+
+- `GET /ads/:id/stats` (працює для `premium` акаунта і тільки для власних оголошень)
+
+## 6) Auth і JWT Bearer
+
+Для protected endpoint-ів у Postman додавай header:
+`Authorization: Bearer <accessToken>`
+
+### 6.1 Отримати токени
+
+- `POST /auth/sign-in` → відповість `tokenPair.accessToken` і `tokenPair.refreshToken`
+
+### 6.2 Refresh / logout
+
+- `POST /auth/refresh` (Bearer у header — refresh token)
+- `POST /auth/log-out` (Bearer у header — access token)
+
+## 7) Система permissions (RBAC)
+
+RBAC працює так:
+
+1. Middleware `checkPermission(...)` читає JWT `userId`
+2. Далі отримує `user.permissions` через `getFullUserById`
+3. Перевіряє наявність `permission.name`
+
+Приклади endpoint-ів, які захищені permissions:
+
+- `POST /ads` — `listings.create`
+- `PATCH /ads/:id` — `listings.update.own` або `listings.update.any`
+- `DELETE /ads/:id` — `listings.delete.own` або `listings.delete.any`
+- `POST /catalog/brands` і `/brands/:id/models` — `admin.manage_brands`
+- `GET/POST /moderation/*` — `moderation.*`
+- `users/*/ban` — `users.ban`
+
+Важливо про статистику:
+
+- `GET /ads/:id/stats`:
+  - доступ тільки для **premium** акаунта
+  - і тільки для **власних** оголошень
+  - permission-місце через middleware тут не використовується, контроль в сервісі.
+
+## 8) Postman collection
+
+У корені `node_autoria` є файл:
+
+- `postman_collection.json`
+
+Імпортуй його в Postman, задай `baseUrl`, а після `sign-in` підстав `accessToken` в `Authorization`.
