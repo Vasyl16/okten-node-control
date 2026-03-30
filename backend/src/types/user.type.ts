@@ -21,4 +21,8 @@ export type UserResponseWithToken = {
   tokenPair: TokenPair;
 };
 
-export type UserRes = Omit<User, 'id' | 'password'>;
+export type UserRes = Omit<User, 'password'>;
+
+export type UserProfileUpdateDto = Partial<
+  Pick<User, 'firstName' | 'lastName' | 'phone'>
+>;

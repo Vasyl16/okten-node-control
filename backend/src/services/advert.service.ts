@@ -5,7 +5,11 @@ import * as modelRepo from '../db/repos/model.repo';
 import * as regionRepo from '../db/repos/region.repo';
 import * as roleRepo from '../db/repos/role.repo';
 import * as userRepo from '../db/repos/user.repo';
-import { BadRequestError, InternalServerError, NotFoundError } from '../errors/errors';
+import {
+  BadRequestError,
+  InternalServerError,
+  NotFoundError,
+} from '../errors/errors';
 
 import {
   convertPrice,
@@ -13,6 +17,7 @@ import {
   Currency,
   getLatestRates,
 } from './currency.service';
+import { emailService } from './email.service';
 import { hasProfanity } from './profanity.service';
 
 type CreateAdvertDto = {
@@ -37,6 +42,33 @@ type UpdateAdvertDto = Partial<
 >;
 
 class AdvertService {
+  private async notifyManagersAboutInactiveAdvert(
+    advertId: number,
+    ownerUserId: string,
+  ): Promise<void> {
+    const managerRole = await roleRepo.getRoleByName('manager');
+    const managers = await userRepo.getByRoleId(managerRole.id);
+
+    const recipients = managers.map((u) => u.email).filter(Boolean);
+    if (!recipients.length) {
+      return;
+    }
+
+    const subject = `Advertisement #${advertId} requires manager review`;
+    const text = `Advertisement #${advertId} from user ${ownerUserId} became inactive after 3 failed profanity checks.`;
+    const html = `
+      <p>Advertisement <b>#${advertId}</b> requires manual review.</p>
+      <p>Owner userId: <b>${ownerUserId}</b></p>
+      <p>Reason: 3 failed profanity edit attempts (status set to <b>inactive</b>).</p>
+    `;
+
+    await Promise.all(
+      recipients.map((email) =>
+        emailService.sendEmail(email, subject, html, text),
+      ),
+    );
+  }
+
   async recalcAllAdPrices() {
     const rates = await getLatestRates();
     const adverts = await advertRepo.listAllAdvertsForPriceRecalc();
@@ -186,6 +218,18 @@ class AdvertService {
         if (hasBadLanguage) {
           editAttempts = advert.editAttempts + 1;
           status = editAttempts >= 3 ? 'inactive' : 'needs_edit';
+          if (status === 'inactive') {
+            // Do not block update flow if notification fails.
+            this.notifyManagersAboutInactiveAdvert(
+              advert.id,
+              advert.userId,
+            ).catch((error) => {
+              console.error(
+                `Failed to notify managers for inactive advert #${advert.id}`,
+                error,
+              );
+            });
+          }
         } else {
           status = 'active';
           editAttempts = 0;
@@ -211,11 +255,24 @@ class AdvertService {
 
   async deleteAdvert(advertId: number, userId: string) {
     const advert = await advertRepo.getAdvertById(advertId);
+    const caller = await userRepo.getById(userId);
 
-    // Owner can delete any of their own adverts.
-    // Managers/admins (with proper permissions) are allowed by design to delete
-    // inactive adverts even if they are not the owner.
-    if (advert.userId !== userId && advert.status !== 'inactive') {
+    if (!caller) {
+      throw new NotFoundError('User not found');
+    }
+
+    const [managerRole, adminRole] = await Promise.all([
+      roleRepo.getRoleByName('manager'),
+      roleRepo.getRoleByName('admin'),
+    ]);
+
+    const isOwner = advert.userId === userId;
+    const isManagerOrAdmin =
+      caller.roleId === managerRole.id || caller.roleId === adminRole.id;
+
+    // Owner can delete own adverts.
+    // Non-owner deletion is allowed only for manager/admin and only for inactive adverts.
+    if (!isOwner && !(isManagerOrAdmin && advert.status === 'inactive')) {
       throw new BadRequestError('You can delete only your own advertisements');
     }
 

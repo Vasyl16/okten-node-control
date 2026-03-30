@@ -2,24 +2,28 @@
 import { NextFunction, Request, Response } from 'express';
 
 import * as userRepo from '../db/repos/user.repo';
-import { ForbiddenError, UnathorizedError } from '../errors/errors';
+import { ForbiddenError, UnauthorizedError } from '../errors/errors';
 import { TokenPayload } from '../types/token.type';
 
 export const checkPermission = (required: string | string[]) => {
   const requiredPermissions = Array.isArray(required) ? required : [required];
 
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
     try {
       const { userId } = req.res?.locals.jwtPayload as TokenPayload;
 
       if (!userId) {
-        throw new UnathorizedError('Unauthorized');
+        throw new UnauthorizedError('Unauthorized');
       }
 
       const user = await userRepo.getFullUserById(userId);
 
       if (!user) {
-        throw new UnathorizedError('Unauthorized');
+        throw new UnauthorizedError('Unauthorized');
       }
 
       const userPermissions: string[] = user.permissions ?? [];

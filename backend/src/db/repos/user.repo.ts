@@ -34,6 +34,15 @@ export const getAll = async () => {
   }
 };
 
+export const getByRoleId = async (roleId: number) => {
+  try {
+    const result = await db.select().from(users).where(eq(users.roleId, roleId));
+    return result;
+  } catch {
+    throw new InternalServerError('Can not get users by role');
+  }
+};
+
 export const updateById = async (
   id: string,
   payload: Partial<{

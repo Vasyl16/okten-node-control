@@ -1,19 +1,19 @@
 import { NextFunction, Request, Response } from 'express';
 
 import * as tokenRepo from '../db/repos/token.repo';
-import { UnathorizedError } from '../errors/errors';
+import { UnauthorizedError } from '../errors/errors';
 import { tokenService } from '../services/token.service';
 
 export const checkAccessToken = async (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
-      throw new UnathorizedError('Access tokes is not provide');
+      throw new UnauthorizedError('Access token is not provided');
     }
 
     const accessToken = authHeader.split('Bearer ')[1];
@@ -23,7 +23,7 @@ export const checkAccessToken = async (
     const pairToken = await tokenRepo.findTokenPairByAccessToken(accessToken);
 
     if (!pairToken) {
-      throw new UnathorizedError('Token is invalid');
+      throw new UnauthorizedError('Token is invalid');
     }
 
     req.res!.locals.jwtPayload = payload;
@@ -39,12 +39,12 @@ export const checkRefreshToken = async (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
-      throw new UnathorizedError('Access tokes is not provide');
+      throw new UnauthorizedError('Refresh token is not provided');
     }
 
     const refreshToken = authHeader.split('Bearer ')[1];
@@ -54,7 +54,7 @@ export const checkRefreshToken = async (
     const pairToken = await tokenRepo.findTokenPairByRefreshToken(refreshToken);
 
     if (!pairToken) {
-      throw new UnathorizedError('Token is invalid');
+      throw new UnauthorizedError('Token is invalid');
     }
 
     req.res!.locals.jwtPayload = payload;

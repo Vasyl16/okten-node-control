@@ -3,9 +3,9 @@ import * as authRepo from '../db/repos/auth.repo';
 import * as roleRepo from '../db/repos/role.repo';
 import * as tokenRepo from '../db/repos/token.repo';
 import * as userRepo from '../db/repos/user.repo';
-import { BadRequestError } from '../errors/errors';
+import { BadRequestError, ConflictError, ForbiddenError } from '../errors/errors';
 import { userPresenter } from '../presenters/user.presenter';
-import { TokenPayload } from '../types/token.type';
+import { TokenPair, TokenPayload } from '../types/token.type';
 import {
   LoginUser,
   SignUpUser,
@@ -33,14 +33,10 @@ class AuthService {
     const isUserExist = await authRepo.isUserEmailExist(email);
 
     if (isUserExist) {
-      throw new BadRequestError('The user with given email already exist');
+      throw new ConflictError('The user with given email already exist');
     }
 
     const roleName = dto.role ?? 'seller';
-
-    if (roleName !== 'buyer' && roleName !== 'seller') {
-      throw new BadRequestError('role must be either buyer or seller');
-    }
 
     const selectedRole = await roleRepo.getRoleByName(roleName);
     const basicAccountType =
@@ -76,7 +72,7 @@ class AuthService {
     const isUserExist = await authRepo.isUserEmailExist(email);
 
     if (isUserExist) {
-      throw new BadRequestError('The user with given email already exist');
+      throw new ConflictError('The user with given email already exist');
     }
 
     const managerRole = await roleRepo.getRoleByName('manager');
@@ -107,7 +103,7 @@ class AuthService {
     return { user: userPresenter.toPublicResponse(user), tokenPair };
   }
 
-  async singInUser(dto: LoginUser): Promise<UserResponseWithToken> {
+  async signInUser(dto: LoginUser): Promise<UserResponseWithToken> {
     const user = await userRepo.getByEmail(dto.email);
 
     if (!user) {
@@ -124,7 +120,7 @@ class AuthService {
     }
 
     if (user.isBanned) {
-      throw new BadRequestError('User is banned');
+      throw new ForbiddenError('User is banned');
     }
 
     const tokenPair = tokenService.generateToken({
@@ -136,11 +132,14 @@ class AuthService {
     return { user: userPresenter.toPublicResponse(user), tokenPair };
   }
 
-  async logOutUser(accessToken: string) {
+  async logOutUser(accessToken: string): Promise<void> {
     await tokenRepo.deleteTokenPairByAccessToken(accessToken);
   }
 
-  async refresToken(tokenPayload: TokenPayload, refreshToken: string) {
+  async refresToken(
+    tokenPayload: TokenPayload,
+    refreshToken: string,
+  ): Promise<TokenPair> {
     const { userId } = tokenPayload;
 
     await tokenRepo.deleteTokenPairByRefreshToken(refreshToken);

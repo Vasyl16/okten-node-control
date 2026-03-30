@@ -1,6 +1,8 @@
 import { NextFunction, Request, Response } from 'express';
 
+import { brandService } from '../services/brand.service';
 import { catalogService } from '../services/catalog.service';
+import { modelService } from '../services/model.service';
 import { TokenPayload } from '../types/token.type';
 
 export const getBrands = async (
@@ -9,7 +11,7 @@ export const getBrands = async (
   next: NextFunction,
 ) => {
   try {
-    const brands = await catalogService.getBrands();
+    const brands = await brandService.getBrands();
     res.status(200).json(brands);
   } catch (error) {
     next(error);
@@ -23,7 +25,7 @@ export const getModelsByBrandId = async (
 ) => {
   try {
     const brandId = Number(req.params.id);
-    const models = await catalogService.getModelsByBrandId(brandId);
+    const models = await modelService.getModelsByBrandId(brandId);
     res.status(200).json(models);
   } catch (error) {
     next(error);
@@ -50,7 +52,7 @@ export const createBrand = async (
 ) => {
   try {
     const { name } = req.body;
-    const brand = await catalogService.createBrand(name);
+    const brand = await brandService.createBrand(name);
     res.status(201).json(brand);
   } catch (error) {
     next(error);
@@ -65,7 +67,7 @@ export const createModel = async (
   try {
     const brandId = Number(req.params.id);
     const { name } = req.body;
-    const model = await catalogService.createModel(brandId, name);
+    const model = await modelService.createModel(brandId, name);
     res.status(201).json(model);
   } catch (error) {
     next(error);
@@ -80,7 +82,7 @@ export const createBrandRequest = async (
   try {
     const { requestedName, comment } = req.body;
     const { userId } = req.res!.locals.jwtPayload as TokenPayload;
-    const request = await catalogService.createBrandRequest(
+    const request = await brandService.createBrandRequest(
       userId,
       requestedName,
       comment,
@@ -99,7 +101,7 @@ export const createModelRequest = async (
   try {
     const { requestedName, comment, brandId } = req.body;
     const { userId } = req.res!.locals.jwtPayload as TokenPayload;
-    const request = await catalogService.createModelRequest(
+    const request = await modelService.createModelRequest(
       userId,
       Number(brandId),
       requestedName,
@@ -117,7 +119,7 @@ export const getBrandRequests = async (
   next: NextFunction,
 ) => {
   try {
-    const requests = await catalogService.getBrandRequests();
+    const requests = await brandService.getBrandRequests();
     res.status(200).json(requests);
   } catch (error) {
     next(error);
@@ -130,7 +132,7 @@ export const getModelRequests = async (
   next: NextFunction,
 ) => {
   try {
-    const requests = await catalogService.getModelRequests();
+    const requests = await modelService.getModelRequests();
     res.status(200).json(requests);
   } catch (error) {
     next(error);

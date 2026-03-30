@@ -7,7 +7,7 @@ export const getUsers = async (
   req: Request,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
     const users = await userService.listUsers();
     res.status(200).json(users);
@@ -20,7 +20,7 @@ export const getCurrentUser = async (
   req: Request,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
     const { userId } = req.res!.locals.jwtPayload as TokenPayload;
     const user = await userService.getCurrentUser(userId);
@@ -34,7 +34,7 @@ export const updateCurrentUser = async (
   req: Request,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
     const { userId } = req.res!.locals.jwtPayload as TokenPayload;
     const { firstName, lastName, phone } = req.body;
@@ -53,7 +53,7 @@ export const banUser = async (
   req: Request,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
     const { id } = req.params;
     const { userId: callerUserId } = req.res!.locals.jwtPayload as TokenPayload;
@@ -68,7 +68,7 @@ export const unbanUser = async (
   req: Request,
   res: Response,
   next: NextFunction,
-) => {
+): Promise<void> => {
   try {
     const { id } = req.params;
     await userService.unbanUser(id);

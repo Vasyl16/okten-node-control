@@ -31,6 +31,11 @@ export const config: Config = {
       'https://api.privatbank.ua/p24api/pubinfo?json&exchange&coursid=5',
   },
 
+  email: {
+    emailFrom: process.env.SMTP_EMAIL as string,
+    emailToken: process.env.SMTP_PASSWORD as string,
+  },
+
   // aws: {
   //   accessKey: process.env.AWS_ACCESS_KEY as string,
   //   secretKey: process.env.AWS_SECRET_ACCESS_KEY as string,

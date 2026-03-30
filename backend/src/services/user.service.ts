@@ -2,7 +2,7 @@ import * as roleRepo from '../db/repos/role.repo';
 import * as userRepo from '../db/repos/user.repo';
 import { BadRequestError, NotFoundError } from '../errors/errors';
 import { userPresenter } from '../presenters/user.presenter';
-import type { UserRes } from '../types/user.type';
+import type { UserProfileUpdateDto, UserRes } from '../types/user.type';
 
 class UserService {
   async getCurrentUser(userId: string): Promise<UserRes> {
@@ -15,12 +15,19 @@ class UserService {
 
   async updateCurrentUser(
     userId: string,
-    payload: Partial<Pick<UserRes, 'firstName' | 'lastName' | 'phone'>>,
+    payload: UserProfileUpdateDto,
   ): Promise<UserRes> {
+    const existingUser = await userRepo.getById(userId);
+    if (!existingUser) {
+      throw new NotFoundError('User not found');
+    }
+
     const user = await userRepo.updateById(userId, payload);
+
     if (!user) {
       throw new NotFoundError('User not found');
     }
+
     return userPresenter.toPublicResponse(user);
   }
 

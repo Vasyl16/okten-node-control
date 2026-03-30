@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import type { StringValue } from 'ms';
 
 import { config } from '../configs/config';
-import { UnathorizedError } from '../errors/errors';
+import { UnauthorizedError } from '../errors/errors';
 import type { TokenPair, TokenPayload } from '../types/token.type';
 
 class TokenService {
@@ -35,7 +35,7 @@ class TokenService {
     try {
       return jwt.verify(token, secret) as TokenPayload;
     } catch (_) {
-      throw new UnathorizedError('Token is invalid');
+      throw new UnauthorizedError('Token is invalid');
     }
   };
 }

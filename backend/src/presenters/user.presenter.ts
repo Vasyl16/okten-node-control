@@ -3,6 +3,7 @@ import { User, UserRes } from '../types/user.type';
 class UserPresenter {
   toPublicResponse(entity: User): UserRes {
     return {
+      id: entity.id,
       accountTypeId: entity.accountTypeId,
       createdAt: entity.createdAt,
       email: entity.email,

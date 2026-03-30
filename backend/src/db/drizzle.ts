@@ -15,3 +15,7 @@ const pool = new Pool({
 
 // Ініціалізація Drizzle ORM з пулом та схемами
 export const db = drizzle(pool, { schema });
+
+export const checkDatabaseConnection = async (): Promise<void> => {
+  await pool.query('select 1');
+};

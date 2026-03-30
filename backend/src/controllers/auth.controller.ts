@@ -5,7 +5,11 @@ import { TokenPayload } from '../types/token.type';
 import { LoginUser, SignUpUser } from '../types/user.type';
 
 class AuthController {
-  async signUpUser(req: Request, res: Response, next: NextFunction) {
+  async signUpUser(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const dto = req.body as SignUpUser;
       const newUserData = await authService.signUpUser(dto);
@@ -15,18 +19,26 @@ class AuthController {
     }
   }
 
-  async signInUser(req: Request, res: Response, next: NextFunction) {
+  async signInUser(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const dto = req.body as LoginUser;
-      const userInfo = await authService.singInUser(dto);
+      const userInfo = await authService.signInUser(dto);
 
-      res.status(201).send(userInfo);
+      res.status(200).send(userInfo);
     } catch (error) {
       next(error);
     }
   }
 
-  async createManager(req: Request, res: Response, next: NextFunction) {
+  async createManager(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const dto = req.body as SignUpUser;
       const newUserData = await authService.createManager(dto);
@@ -36,7 +48,11 @@ class AuthController {
     }
   }
 
-  async logOutUser(req: Request, res: Response, next: NextFunction) {
+  async logOutUser(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const accessToken = req.res!.locals.accessToken as string;
 
@@ -48,7 +64,11 @@ class AuthController {
     }
   }
 
-  async refreshToken(req: Request, res: Response, next: NextFunction) {
+  async refreshToken(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const tokenPaylod = req.res!.locals.jwtPayload as TokenPayload;
       const refreshToken = req.res!.locals.refreshToken as string;
@@ -58,7 +78,7 @@ class AuthController {
         refreshToken
       );
 
-      res.status(201).send(newTokenPair);
+      res.status(200).send(newTokenPair);
     } catch (error) {
       next(error);
     }

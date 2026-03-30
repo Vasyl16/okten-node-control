@@ -4,6 +4,7 @@ export type Config = {
   token: TokenConfig;
   jobs: JobsConfig;
   external: ExternalConfig;
+  email: EmailConfig;
   // aws: AWSConfig;
 };
 
@@ -29,6 +30,11 @@ export type JobsConfig = {
 
 export type ExternalConfig = {
   privatApiUrl: string;
+};
+
+export type EmailConfig = {
+  emailFrom: string;
+  emailToken: string;
 };
 
 // export type AWSConfig = {

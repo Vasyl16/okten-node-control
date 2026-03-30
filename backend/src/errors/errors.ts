@@ -53,11 +53,14 @@ export class ValidationError extends BadRequestError {
   }
 }
 
-export class UnathorizedError extends AppError {
+export class UnauthorizedError extends AppError {
   constructor(message: string) {
     super(message, 401);
   }
 }
+
+// Backward-compatible alias (temporary)
+export class UnathorizedError extends UnauthorizedError {}
 
 export class PayloadTooLarge extends AppError {
   constructor(message: string) {

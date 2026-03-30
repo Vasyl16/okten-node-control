@@ -3,6 +3,7 @@ import express, { NextFunction, Request, Response } from 'express';
 
 import { config } from './configs/config';
 import { startPriceRecalcCron } from './cron/price-recalc.cron';
+import { checkDatabaseConnection } from './db/drizzle';
 import { AppError, ValidationError } from './errors/errors';
 import advertRouter from './router/advert.router';
 import authRouter from './router/auth.router';
@@ -47,8 +48,20 @@ app.use(
 
 const appConfig = config.app;
 
-startPriceRecalcCron();
+const bootstrap = async (): Promise<void> => {
+  try {
+    await checkDatabaseConnection();
+    console.log('Database connection is OK');
+  } catch (error) {
+    console.error('Database connection failed. App startup aborted.', error);
+    process.exit(1);
+  }
 
-app.listen(appConfig.port, async () => {
-  console.log(`Server running on http://${appConfig.host}:${appConfig.port}`);
-});
+  startPriceRecalcCron();
+
+  app.listen(appConfig.port, () => {
+    console.log(`Server running on http://${appConfig.host}:${appConfig.port}`);
+  });
+};
+
+void bootstrap();
