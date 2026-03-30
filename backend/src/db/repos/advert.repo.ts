@@ -1,4 +1,4 @@
-import { and, avg, count, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, avg, count, desc, eq, inArray } from 'drizzle-orm';
 
 import { InternalServerError, NotFoundError } from '../../errors/errors';
 import { db } from '../drizzle';
@@ -84,13 +84,92 @@ export const listAdverts = async () => {
   }
 };
 
-export const listAdvertsByUserId = async (userId: string) => {
+export type AdvertListSortBy = 'createdAt' | 'updatedAt' | 'priceUah';
+export type AdvertSortOrder = 'asc' | 'desc';
+
+export type AdvertListQuery = {
+  page: number;
+  limit: number;
+  sortBy: AdvertListSortBy;
+  sortOrder: AdvertSortOrder;
+};
+
+const toOrderByColumn = (sortBy: AdvertListSortBy, sortOrder: AdvertSortOrder) => {
+  const columnMap = {
+    createdAt: advertisements.createdAt,
+    updatedAt: advertisements.updatedAt,
+    priceUah: advertisements.priceUah,
+  };
+
+  const column = columnMap[sortBy];
+  return sortOrder === 'asc' ? asc(column) : desc(column);
+};
+
+export const listAdvertsPaginated = async (query: AdvertListQuery) => {
   try {
-    return await db
-      .select()
-      .from(advertisements)
-      .where(eq(advertisements.userId, userId))
-      .orderBy(desc(advertisements.createdAt));
+    const offset = (query.page - 1) * query.limit;
+
+    const [items, [totalRow]] = await Promise.all([
+      db
+        .select()
+        .from(advertisements)
+        .where(eq(advertisements.status, 'active'))
+        .orderBy(toOrderByColumn(query.sortBy, query.sortOrder))
+        .limit(query.limit)
+        .offset(offset),
+      db
+        .select({ value: count() })
+        .from(advertisements)
+        .where(eq(advertisements.status, 'active')),
+    ]);
+
+    const total = Number(totalRow?.value ?? 0);
+    return {
+      items,
+      page: query.page,
+      limit: query.limit,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / query.limit)),
+    };
+  } catch {
+    throw new InternalServerError('Can not get advertisements');
+  }
+};
+
+export const listAdvertsByUserId = async (userId: string, query?: AdvertListQuery) => {
+  try {
+    if (!query) {
+      return await db
+        .select()
+        .from(advertisements)
+        .where(eq(advertisements.userId, userId))
+        .orderBy(desc(advertisements.createdAt));
+    }
+
+    const offset = (query.page - 1) * query.limit;
+
+    const [items, [totalRow]] = await Promise.all([
+      db
+        .select()
+        .from(advertisements)
+        .where(eq(advertisements.userId, userId))
+        .orderBy(toOrderByColumn(query.sortBy, query.sortOrder))
+        .limit(query.limit)
+        .offset(offset),
+      db
+        .select({ value: count() })
+        .from(advertisements)
+        .where(eq(advertisements.userId, userId)),
+    ]);
+
+    const total = Number(totalRow?.value ?? 0);
+    return {
+      items,
+      page: query.page,
+      limit: query.limit,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / query.limit)),
+    };
   } catch {
     throw new InternalServerError('Can not get advertisements');
   }

@@ -20,6 +20,8 @@ import {
 import { emailService } from './email.service';
 import { hasProfanity } from './profanity.service';
 
+type AdvertListParams = advertRepo.AdvertListQuery;
+
 type CreateAdvertDto = {
   title: string;
   description?: string;
@@ -290,8 +292,8 @@ class AdvertService {
     return advert;
   }
 
-  listAdverts() {
-    return advertRepo.listAdverts();
+  listAdverts(params: AdvertListParams) {
+    return advertRepo.listAdvertsPaginated(params);
   }
 
   async getAdvertStatistics(advertId: number, userId: string) {
@@ -331,8 +333,8 @@ class AdvertService {
     };
   }
 
-  listAdvertsByUser(userId: string) {
-    return advertRepo.listAdvertsByUserId(userId);
+  listAdvertsByUser(userId: string, params: AdvertListParams) {
+    return advertRepo.listAdvertsByUserId(userId, params);
   }
 }
 

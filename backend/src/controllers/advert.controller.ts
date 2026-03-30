@@ -3,6 +3,25 @@ import { NextFunction, Request, Response } from 'express';
 import { advertService } from '../services/advert.service';
 import { TokenPayload } from '../types/token.type';
 
+const parseListQuery = (req: Request) => {
+  const pageRaw = Number(req.query.page);
+  const limitRaw = Number(req.query.limit);
+  const sortByRaw = String(req.query.sortBy ?? 'createdAt');
+  const sortOrderRaw = String(req.query.sortOrder ?? 'desc');
+
+  const page = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
+  const limitCandidate =
+    Number.isFinite(limitRaw) && limitRaw > 0 ? Math.floor(limitRaw) : 10;
+  const limit = Math.min(limitCandidate, 100);
+
+  const sortBy = ['createdAt', 'updatedAt', 'priceUah'].includes(sortByRaw)
+    ? (sortByRaw as 'createdAt' | 'updatedAt' | 'priceUah')
+    : 'createdAt';
+  const sortOrder: 'asc' | 'desc' = sortOrderRaw === 'asc' ? 'asc' : 'desc';
+
+  return { page, limit, sortBy, sortOrder };
+};
+
 export const createAdvert = async (
   req: Request,
   res: Response,
@@ -99,7 +118,8 @@ export const listAdverts = async (
   next: NextFunction,
 ) => {
   try {
-    const adverts = await advertService.listAdverts();
+    const query = parseListQuery(req);
+    const adverts = await advertService.listAdverts(query);
     res.status(200).json(adverts);
   } catch (error) {
     next(error);
@@ -113,7 +133,8 @@ export const listMyAdverts = async (
 ) => {
   try {
     const { userId } = req.res!.locals.jwtPayload as TokenPayload;
-    const adverts = await advertService.listAdvertsByUser(userId);
+    const query = parseListQuery(req);
+    const adverts = await advertService.listAdvertsByUser(userId, query);
     res.status(200).json(adverts);
   } catch (error) {
     next(error);
